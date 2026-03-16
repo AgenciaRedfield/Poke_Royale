@@ -95,27 +95,16 @@ async function loadGame() {
     .eq('user_id', USER_ID)
     .single();
 
+  let saveData = null;
   if (data && data.game_data) {
-    const saveData = data.game_data;
-    GAME_DATA.gold = saveData.gold ?? 0;
-    GAME_DATA.candies = saveData.candies ?? 0;
-    GAME_DATA.playerName = saveData.playerName ?? "Treinador";
-    GAME_DATA.playerAvatar = saveData.playerAvatar ?? GAME_DATA.playerAvatar;
-    GAME_DATA.playerLevel = saveData.playerLevel ?? 1;
-    GAME_DATA.playerXP = saveData.playerXP ?? 0;
-    GAME_DATA.collection = saveData.collection ?? [];
-    GAME_DATA.deck = saveData.deck ?? [];
-    GAME_DATA.trophies = saveData.trophies ?? 0;
-    GAME_DATA.wins = saveData.wins ?? 0;
-    GAME_DATA.losses = saveData.losses ?? 0;
-    GAME_DATA.chests = saveData.chests ?? [null, null, null, null];
-    return true;
+    saveData = data.game_data;
+  } else {
+    // Fallback to localStorage for migration or offline
+    const localSaved = localStorage.getItem("pokeClash_save");
+    if (localSaved) saveData = JSON.parse(localSaved);
   }
 
-  // Fallback to localStorage for migration or offline
-  const localSaved = localStorage.getItem("pokeClash_save");
-  if (localSaved) {
-    const saveData = JSON.parse(localSaved);
+  if (saveData && saveData.collection && saveData.collection.length >= 4) {
     GAME_DATA.gold = saveData.gold ?? 0;
     GAME_DATA.candies = saveData.candies ?? 0;
     GAME_DATA.playerName = saveData.playerName ?? "Treinador";
@@ -555,10 +544,11 @@ function showSplash() {
   const loading = document.getElementById('loadingScreen');
   if (!splash) { startDataFetch(); return; }
   
-  splash.style.display = 'flex';
+  splash.style.opacity = '1';
+  splash.style.transform = 'scale(1)';
   loading.style.display = 'none';
   
-  // After 2.5s, transition to loading screen
+  // After 2s, transition to loading screen then fetch data
   setTimeout(() => {
     splash.style.opacity = '0';
     splash.style.transform = 'scale(1.05)';
@@ -667,17 +657,20 @@ async function startDataFetch() {
   GAME_DATA.pokemonList.push(...spells);
   
   // Try to load saved game
-  const hasSave = loadGame();
+  const hasSave = await loadGame();
   
   if (!hasSave) {
-    GAME_DATA.collection = results.filter(p => ["bulbasaur", "charmander", "squirtle", "pikachu", "jigglypuff", "machop"].includes(p.name));
+    // Initialization for new players ONLY if no data was found
+    GAME_DATA.collection = results.filter(p => ["bulbasaur", "charmander", "squirtle", "pikachu", "jigglypuff", "machop"].includes(p.name)).map(p => ({...p, level: 1, copies: 1}));
     GAME_DATA.deck = GAME_DATA.collection.slice(0, 8);
+    GAME_DATA.gold = 100; // Starter gold
+    GAME_DATA.candies = 10; // Starter candies
   }
   
   document.getElementById("loadingScreen").style.display = "none";
   
   if (!hasSave) {
-      document.getElementById("setupScreen").style.display = "flex";
+    document.getElementById("setupScreen").style.display = "flex";
   } else {
       document.getElementById("mainMenu").style.display = "flex";
       updateProfileUI();
@@ -710,7 +703,11 @@ document.getElementById("startGameBtn").addEventListener('click', () => {
   document.getElementById("setupScreen").style.display = "none";
   document.getElementById("mainMenu").style.display = "flex";
   updateProfileUI();
+  updateArenaUI();
+  renderCollection();
+  updateCurrencyUI();
   playMusic();
+  saveGame();
 });
 
 document.getElementById("musicToggleBtn").addEventListener("click", () => {
@@ -927,6 +924,20 @@ function renderBadges() {
     container.appendChild(el);
   }
 }
+
+document.getElementById("resetAccountBtn").addEventListener("click", async () => {
+  if (!confirm("Tem certeza? Todos os seus dados serão apagados e você começará do zero!")) return;
+
+  // Delete from Supabase
+  await supabase.from('profiles').delete().eq('user_id', USER_ID);
+  
+  // Clear local storage & generate fresh ID
+  localStorage.removeItem("pokeClash_save");
+  localStorage.removeItem("pokeClash_userId");
+
+  // Reload the page to start fresh
+  location.reload();
+});
 
 // --- Collection & Deck Logic ---
 function renderCollection() {
@@ -1202,27 +1213,12 @@ function playMusic() {
 }
 
 // --- Home / Landing Logic ---
-document.getElementById("btnPlayNow").addEventListener("click", async () => {
+document.getElementById("btnPlayNow").addEventListener("click", () => {
     document.getElementById("landingPage").style.display = "none";
+    document.getElementById("splashScreen").style.display = "flex";
     
-    const hasData = await loadGame();
-    if (hasData) {
-      // If user had a game, show splash then menu
-      document.getElementById("splashScreen").style.display = "flex";
-      setTimeout(() => {
-        document.getElementById("splashScreen").style.display = "none";
-        document.getElementById("mainMenu").style.display = "flex";
-        initMainMenu();
-      }, 2000);
-    } else {
-      // First time, show splash then loading/setup
-      document.getElementById("splashScreen").style.display = "flex";
-      setTimeout(() => {
-        document.getElementById("splashScreen").style.display = "none";
-        document.getElementById("loadingScreen").style.display = "flex";
-        startDataFetch();
-      }, 2000);
-    }
+    // showSplash() will handle the transition to loading and then startDataFetch()
+    showSplash();
 });
 
 function spawnPlayerUnit(handIndex, xPercent, yPercent) {
