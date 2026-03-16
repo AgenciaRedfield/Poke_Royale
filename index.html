@@ -54,10 +54,17 @@
 
         <div class="landing-actions">
           <button id="btnPlayNow" class="primary-btn">
-            <i class="fas fa-play"></i> JOGAR AGORA
+            <i class="fas fa-play"></i> LOGIN / JOGAR
           </button>
-          <p class="beta-tag">BETA v1.5 - Elementals & Splash</p>
+          <p class="beta-tag">BETA v1.5 - Multi-Cloud Enabled</p>
         </div>
+
+        <section class="landing-ranking">
+          <h3>👑 RANKING GLOBAL</h3>
+          <div id="leaderboardList" class="leaderboard-list">
+             <div class="loading-msg">Carregando heróis...</div>
+          </div>
+        </section>
       </div>
       
       <div class="landing-footer">
@@ -127,6 +134,15 @@
            <h3 id="arenaTitleDisplay">Arena da Cidade de Pallet</h3>
            <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png" alt="Pikachu" class="mascot" />
            <p id="arenaTrophiesDisplay">Troféus: 0</p>
+           
+           <div class="battle-selection">
+              <button id="toBattleBotBtn" class="battle-choice-btn bot">
+                 <i class="fas fa-robot"></i> Treinar (BOT)
+              </button>
+              <button id="toBattlePvpBtn" class="battle-choice-btn pvp">
+                 <i class="fas fa-globe"></i> Batalha Real (PvP)
+              </button>
+           </div>
         </div>
         <div id="chestArea">
            <div class="chest-slot" data-slot="0">Vazio</div>
@@ -215,6 +231,16 @@
         <div class="badges-grid" id="badgesContainer">
            <!-- Rendered via JS -->
         </div>
+      </div>
+
+      <!-- Matchmaking Overlay -->
+      <div id="matchmakingOverlay" class="modal" style="display: none; background: rgba(0,0,0,0.85); z-index: 200;">
+         <div class="matchmaking-content">
+            <div class="loader-ripple"><div></div><div></div></div>
+            <h2>Procurando Oponente...</h2>
+            <p id="matchmakingStatus">Buscando treinadores na região...</p>
+            <button id="cancelMatchmakingBtn" class="cancel-btn">Cancelar</button>
+         </div>
       </div>
 
       <div class="bottom-nav">

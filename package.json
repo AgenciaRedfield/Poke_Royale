@@ -12,6 +12,7 @@
     "vite": "^8.0.0"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^7.2.0"
+    "@fortawesome/fontawesome-free": "^7.2.0",
+    "@supabase/supabase-js": "^2.99.2"
   }
 }

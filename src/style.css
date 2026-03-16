@@ -149,6 +149,86 @@
 .update-tag.balance { background: #3b82f6; }
 .update-tag.fix { background: #f43f5e; }
 
+/* Ranking on Home */
+.landing-ranking {
+  margin-top: 50px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(15px);
+  border-radius: 20px;
+  padding: 20px;
+  width: 100%;
+}
+
+.landing-ranking h3 {
+  color: #fbbf24;
+  margin-bottom: 20px;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 350px;
+  overflow-y: auto;
+}
+
+.rank-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 12px 20px;
+  border-radius: 12px;
+  border-left: 5px solid transparent;
+}
+
+.rank-item.top-1 { border-left-color: #fbbf24; background: rgba(251, 191, 36, 0.2); }
+.rank-item.top-2 { border-left-color: #94a3b8; }
+.rank-item.top-3 { border-left-color: #d97706; }
+
+.rank-pos { font-weight: 900; color: #60a5fa; min-width: 25px; }
+.rank-avatar { width: 35px; height: 35px; border-radius: 50%; background: #000; }
+.rank-name { flex: 1; text-align: left; font-weight: 600; }
+.rank-trophies { font-weight: 800; color: #f9fafb; display: flex; align-items: center; gap: 5px; }
+.rank-trophies i { color: #fbbf24; }
+
+/* Battle Selection Buttons */
+.battle-selection {
+  display: flex;
+  gap: 12px;
+  margin-top: 15px;
+  width: 100%;
+  justify-content: center;
+}
+
+.battle-choice-btn {
+  flex: 1;
+  max-width: 160px;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 5px;
+  color: white;
+  font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  transition: transform 0.2s, filter 0.2s;
+}
+
+.battle-choice-btn.bot {
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+}
+
+.battle-choice-btn.pvp {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.battle-choice-btn:active { transform: scale(0.95); }
+.battle-choice-btn:hover { filter: brightness(1.1); }
+
 body {
   background-color: var(--bg-dark);
   color: white;
@@ -1914,4 +1994,76 @@ body {
 @keyframes splash-pop {
   0% { transform: translate(-50%, -50%) scale(0); opacity: 0.8; }
   100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+}
+
+/* Matchmaking Overlay */
+#matchmakingOverlay {
+  display: none;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  z-index: 5000;
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+}
+
+.matchmaking-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 30px;
+  text-align: center;
+  padding: 40px;
+}
+
+.matchmaking-content h2 {
+  font-size: 2rem;
+  color: #fbbf24;
+  text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  margin-top: 20px;
+}
+
+.matchmaking-content p {
+  color: #94a3b8;
+  font-size: 1.1rem;
+}
+
+.cancel-btn {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid #ef4444;
+  color: #f87171;
+  padding: 12px 30px;
+  border-radius: 50px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-top: 40px;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
+.loader-ripple {
+  display: inline-block;
+  position: relative;
+  width: 120px;
+  height: 120px;
+}
+.loader-ripple div {
+  position: absolute;
+  border: 4px solid #fbbf24;
+  opacity: 1;
+  border-radius: 50%;
+  animation: loader-ripple 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+.loader-ripple div:nth-child(2) {
+  animation-delay: -0.5s;
+}
+@keyframes loader-ripple {
+  0% { top: 60px; left: 60px; width: 0; height: 0; opacity: 0; }
+  5% { top: 60px; left: 60px; width: 0; height: 0; opacity: 1; }
+  100% { top: 0px; left: 0px; width: 120px; height: 120px; opacity: 0; }
 }

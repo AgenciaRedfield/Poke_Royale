@@ -1,4 +1,11 @@
 import './style.css';
+import { supabase } from './supabase.js';
+
+let USER_ID = localStorage.getItem("pokeClash_userId");
+if (!USER_ID) {
+  USER_ID = crypto.randomUUID();
+  localStorage.setItem("pokeClash_userId", USER_ID);
+}
 
 let GAME_DATA = {
   pokemonList: [],
@@ -42,11 +49,15 @@ let GAME_DATA = {
   // Battle State
   matchTime: 180,
   battleInterval: null,
-  projectiles: []
+  projectiles: [],
+  isPvP: false,
+  onlineRoom: null,
+  isHost: false,
+  opponentData: null
 };
 
-// --- Persistência (LocalStorage) ---
-function saveGame() {
+// --- Persistência (Supabase) ---
+async function saveGame() {
   const dataToSave = {
     gold: GAME_DATA.gold,
     candies: GAME_DATA.candies,
@@ -61,28 +72,205 @@ function saveGame() {
     losses: GAME_DATA.losses,
     chests: GAME_DATA.chests
   };
-  localStorage.setItem("pokeClash_save", JSON.stringify(dataToSave));
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert({ 
+      user_id: USER_ID, 
+      game_data: dataToSave,
+      updated_at: new Date()
+    }, { onConflict: 'user_id' });
+
+  if (error) {
+    console.error("Erro ao salvar no Supabase:", error);
+    // Fallback to localstorage if DB fails
+    localStorage.setItem("pokeClash_save", JSON.stringify(dataToSave));
+  }
 }
 
-function loadGame() {
-  const saved = localStorage.getItem("pokeClash_save");
-  if (saved) {
-    const data = JSON.parse(saved);
-    GAME_DATA.gold = data.gold ?? 0;
-    GAME_DATA.candies = data.candies ?? 0;
-    GAME_DATA.playerName = data.playerName ?? "Treinador";
-    GAME_DATA.playerAvatar = data.playerAvatar ?? GAME_DATA.playerAvatar;
-    GAME_DATA.playerLevel = data.playerLevel ?? 1;
-    GAME_DATA.playerXP = data.playerXP ?? 0;
-    GAME_DATA.collection = data.collection ?? [];
-    GAME_DATA.deck = data.deck ?? [];
-    GAME_DATA.trophies = data.trophies ?? 0;
-    GAME_DATA.wins = data.wins ?? 0;
-    GAME_DATA.losses = data.losses ?? 0;
-    GAME_DATA.chests = data.chests ?? [null, null, null, null];
+async function loadGame() {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('game_data')
+    .eq('user_id', USER_ID)
+    .single();
+
+  if (data && data.game_data) {
+    const saveData = data.game_data;
+    GAME_DATA.gold = saveData.gold ?? 0;
+    GAME_DATA.candies = saveData.candies ?? 0;
+    GAME_DATA.playerName = saveData.playerName ?? "Treinador";
+    GAME_DATA.playerAvatar = saveData.playerAvatar ?? GAME_DATA.playerAvatar;
+    GAME_DATA.playerLevel = saveData.playerLevel ?? 1;
+    GAME_DATA.playerXP = saveData.playerXP ?? 0;
+    GAME_DATA.collection = saveData.collection ?? [];
+    GAME_DATA.deck = saveData.deck ?? [];
+    GAME_DATA.trophies = saveData.trophies ?? 0;
+    GAME_DATA.wins = saveData.wins ?? 0;
+    GAME_DATA.losses = saveData.losses ?? 0;
+    GAME_DATA.chests = saveData.chests ?? [null, null, null, null];
     return true;
   }
+
+  // Fallback to localStorage for migration or offline
+  const localSaved = localStorage.getItem("pokeClash_save");
+  if (localSaved) {
+    const saveData = JSON.parse(localSaved);
+    GAME_DATA.gold = saveData.gold ?? 0;
+    GAME_DATA.candies = saveData.candies ?? 0;
+    GAME_DATA.playerName = saveData.playerName ?? "Treinador";
+    GAME_DATA.playerAvatar = saveData.playerAvatar ?? GAME_DATA.playerAvatar;
+    GAME_DATA.playerLevel = saveData.playerLevel ?? 1;
+    GAME_DATA.playerXP = saveData.playerXP ?? 0;
+    GAME_DATA.collection = saveData.collection ?? [];
+    GAME_DATA.deck = saveData.deck ?? [];
+    GAME_DATA.trophies = saveData.trophies ?? 0;
+    GAME_DATA.wins = saveData.wins ?? 0;
+    GAME_DATA.losses = saveData.losses ?? 0;
+    GAME_DATA.chests = saveData.chests ?? [null, null, null, null];
+    return true;
+  }
+  
   return false;
+}
+
+// --- Sistema Multiplayer (Online) ---
+let lobbyChannel = null;
+let battleChannel = null;
+
+async function startMatchmaking() {
+  document.getElementById("matchmakingOverlay").style.display = "flex";
+  GAME_DATA.isPvP = true;
+  
+  lobbyChannel = supabase.channel('pokeclash-lobby', {
+    config: { presence: { key: USER_ID } }
+  });
+
+  lobbyChannel
+    .on('presence', { event: 'sync' }, () => {
+      const state = lobbyChannel.presenceState();
+      // Look for anyone else searching
+      for (const id in state) {
+        if (id !== USER_ID) {
+          const opponent = state[id][0];
+          if (opponent.status === 'searching' && !GAME_DATA.onlineRoom) {
+             // We found someone! 
+             // Determine who is host based on UUID comparison (deterministic)
+             const weAreHost = USER_ID < id;
+             const roomId = weAreHost ? `${USER_ID}-${id}` : `${id}-${USER_ID}`;
+             
+             GAME_DATA.onlineRoom = roomId;
+             GAME_DATA.isHost = weAreHost;
+             GAME_DATA.opponentData = opponent;
+             
+             setupOnlineBattle(roomId);
+             return;
+          }
+        }
+      }
+    })
+    .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      // Just for logging/debug
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await lobbyChannel.track({
+          status: 'searching',
+          name: GAME_DATA.playerName,
+          avatar: GAME_DATA.playerAvatar,
+          level: GAME_DATA.playerLevel,
+          trophies: GAME_DATA.trophies
+        });
+      }
+    });
+}
+
+function cancelMatchmaking() {
+  if (lobbyChannel) {
+    lobbyChannel.untrack();
+    supabase.removeChannel(lobbyChannel);
+    lobbyChannel = null;
+  }
+  document.getElementById("matchmakingOverlay").style.display = "none";
+  GAME_DATA.isPvP = false;
+  GAME_DATA.onlineRoom = null;
+}
+
+async function setupOnlineBattle(roomId) {
+  // Clear lobby
+  if (lobbyChannel) supabase.removeChannel(lobbyChannel);
+  
+  document.getElementById("matchmakingStatus").innerText = "Oponente encontrado! Iniciando...";
+  
+  battleChannel = supabase.channel(`battle-${roomId}`);
+  
+  battleChannel
+    .on('broadcast', { event: 'spawn' }, (payload) => {
+      handleRemoteSpawn(payload.payload);
+    })
+    .on('broadcast', { event: 'tower_hp' }, (payload) => {
+      handleRemoteTowerHp(payload.payload);
+    })
+    .on('broadcast', { event: 'game_over' }, (payload) => {
+       if (!GAME_DATA.gameOver) endGame(payload.payload.victor === USER_ID);
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        setTimeout(() => {
+          document.getElementById("matchmakingOverlay").style.display = "none";
+          document.getElementById("mainMenu").style.display = "none";
+          document.getElementById("gameContainer").style.display = "flex";
+          initGame();
+        }, 1000);
+      }
+    });
+}
+
+function sendBattleAction(event, payload) {
+  if (battleChannel && GAME_DATA.isPvP) {
+    battleChannel.send({
+      type: 'broadcast',
+      event: event,
+      payload: payload
+    });
+  }
+}
+
+function handleRemoteSpawn(data) {
+  // Mirror coordinates for opponent
+  const x = 100 - data.x;
+  const y = 100 - data.y;
+  
+  const card = GAME_DATA.pokemonList.find(p => p.id === data.cardId);
+  if (!card) return;
+
+  if (card.isSpell) {
+    castSpell(card, x, y, "enemy");
+  } else {
+    createUnit(card, x, y, "enemy");
+  }
+}
+
+function handleRemoteTowerHp(data) {
+  // data: { towerId: string, hp: number }
+  // Towers IDs for the other player are reflected
+  const reflectionMap = {
+    'playerKingTower': 'enemyKingTower',
+    'playerTowerLeft': 'enemyTowerRight', // Left for one is Right for other
+    'playerTowerRight': 'enemyTowerLeft',
+    'enemyKingTower': 'playerKingTower',
+    'enemyTowerLeft': 'playerTowerRight',
+    'enemyTowerRight': 'playerTowerLeft'
+  };
+  
+  const localId = reflectionMap[data.towerId];
+  if (localId) {
+    const tower = GAME_DATA.towers.find(t => t.id === localId);
+    if (tower) {
+      tower.hp = data.hp;
+      updateTowersUI();
+    }
+  }
 }
 
 const ARENAS = [
@@ -825,10 +1013,22 @@ function renderCollection() {
 }
 
 document.getElementById("toBattleBtn").addEventListener("click", () => {
-    // Only proceed to battle if from arena
+    switchMenuTab('arenaTab');
+});
+
+document.getElementById("toBattleBotBtn").addEventListener("click", () => {
+    GAME_DATA.isPvP = false;
     document.getElementById("mainMenu").style.display = "none";
     document.getElementById("gameContainer").style.display = "flex";
     initGame();
+});
+
+document.getElementById("toBattlePvpBtn").addEventListener("click", () => {
+    startMatchmaking();
+});
+
+document.getElementById("cancelMatchmakingBtn").addEventListener("click", () => {
+    cancelMatchmaking();
 });
 
 // Tower Setup
@@ -1002,10 +1202,11 @@ function playMusic() {
 }
 
 // --- Home / Landing Logic ---
-document.getElementById("btnPlayNow").addEventListener("click", () => {
+document.getElementById("btnPlayNow").addEventListener("click", async () => {
     document.getElementById("landingPage").style.display = "none";
     
-    if (loadGame()) {
+    const hasData = await loadGame();
+    if (hasData) {
       // If user had a game, show splash then menu
       document.getElementById("splashScreen").style.display = "flex";
       setTimeout(() => {
@@ -1040,6 +1241,11 @@ function spawnPlayerUnit(handIndex, xPercent, yPercent) {
        showFloatingText(xPercent, yPercent, card.name, 'deploy');
     }
     
+    // Online Sync
+    if (GAME_DATA.isPvP) {
+      sendBattleAction('spawn', { cardId: card.id, x: xPercent, y: yPercent });
+    }
+    
     // Cycle cards back to bottom of battle deck
     GAME_DATA.battleDeck.unshift(card); // put played card backwards
     
@@ -1052,6 +1258,8 @@ function spawnPlayerUnit(handIndex, xPercent, yPercent) {
 }
 
 function spawnEnemyUnit() {
+  if (GAME_DATA.isPvP) return; // Don't spawn bots in online match
+  
   const currentArenaIdx = getCurrentArenaIndex();
   
   // AI difficulty scaling
@@ -1137,6 +1345,13 @@ function castSpell(spell, x, y, team) {
       }
     });
     updateTowersUI();
+    
+    // PvP Sync: If we damaged towers, broadcast our local state
+    if (GAME_DATA.isPvP) {
+      GAME_DATA.towers.forEach(t => {
+        sendBattleAction('tower_hp', { towerId: t.id, hp: t.hp });
+      });
+    }
 
     const intensity = spell.atk > 200 ? 10 : 5;
     applyScreenShake(intensity);
@@ -1359,6 +1574,7 @@ function update(time) {
                  affectedTowers.forEach(t => {
                     t.hp -= u.atk;
                     applyScreenShake(2);
+                    if (GAME_DATA.isPvP) sendBattleAction('tower_hp', { towerId: t.id, hp: t.hp });
                  });
                  updateTowersUI();
               } else {
@@ -1373,6 +1589,7 @@ function update(time) {
               if (target.type === 'tower' && !u.splashRadius) {
                 updateTowersUI();
                 applyScreenShake(2);
+                if (GAME_DATA.isPvP) sendBattleAction('tower_hp', { towerId: target.ref.id, hp: target.ref.hp });
               }
               
               if (target.type === 'tower' && target.ref.isKing && target.ref.hp <= 0) {
@@ -1511,7 +1728,16 @@ function update(time) {
 }
 
 function endGame(playerWon) {
+  if (GAME_DATA.gameOver) return;
   GAME_DATA.gameOver = true;
+  
+  if (GAME_DATA.isPvP) {
+    sendBattleAction('game_over', { victor: playerWon ? USER_ID : 'opponent' });
+    setTimeout(() => {
+      if (battleChannel) { supabase.removeChannel(battleChannel); battleChannel = null; }
+    }, 2000);
+  }
+
   if (GAME_DATA.battleInterval) clearInterval(GAME_DATA.battleInterval);
   
   const screen = document.getElementById("gameOverScreen");
@@ -1628,7 +1854,7 @@ function resetBattleState() {
   document.getElementById('unitsContainer').innerHTML = '';
   
   // Reset battle variables
-  GAME_DATA.playerElixir = 7; // Start with more elixir (Easy mode)
+  GAME_DATA.playerElixir = GAME_DATA.isPvP ? 5 : 7; // Equal elixir for PvP
   GAME_DATA.enemyElixir = 5;
   GAME_DATA.gameOver = false;
   GAME_DATA.matchTime = 180;
@@ -1664,6 +1890,14 @@ function initGame() {
   
   initTowers();
   initDeck();
+  
+  // PvP Visual Adjustment
+  if (GAME_DATA.isPvP && GAME_DATA.opponentData) {
+     showFloatingText(50, 20, `VS ${GAME_DATA.opponentData.name}`, 'spell');
+  } else if (!GAME_DATA.isPvP) {
+     showFloatingText(50, 20, `MODO TREINO`, 'normal');
+  }
+
   startMatchTimer();
   GAME_DATA.lastFrameTime = performance.now();
   GAME_DATA.gameOver = false; // ensure set after reset
@@ -1761,6 +1995,7 @@ function updateProjectiles(dt) {
         if (GAME_DATA.towers.includes(target)) {
           updateTowersUI();
           applyScreenShake(3);
+          if (GAME_DATA.isPvP) sendBattleAction('tower_hp', { towerId: target.id, hp: target.hp });
           if (target.isKing && target.hp <= 0) endGame(p.team === 'player');
         }
       }

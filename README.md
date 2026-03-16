@@ -7,6 +7,8 @@ Um jogo de batalha tática em tempo real inspirado em Clash Royale e focado no u
 ## ✨ Funcionalidades
 
 - **Batalhas em Tempo Real**: Posicione seus Pokémon na arena para derrubar as torres do oponente.
+- **Batalhas Online (PvP)**: Sistema de Matchmaking real-time com sincronização de unidades, feitiços e dano em torres.
+- **Modo Treino (Bot)**: Pratique suas jogadas contra uma IA inteligente antes de enfrentar outros treinadores.
 - **Sistema de Projéteis**: Pokémon com tipos elementares (Fogo, Água, etc.) agora atacam à distância com projéteis visuais e mecânicas de trajetória.
 - **Dano em Área (Splash)**: Pokémon Épicos, Lendários ou de tipos específicos (Fogo, Dragão, Pedra) causam dano em área, ideal para limpar hordas.
 - **Vantagem de Tipos**: Sistema de fraquezas e resistências clássico de Pokémon integrado ao dano (ex: Água > Fogo).
@@ -20,6 +22,7 @@ Um jogo de batalha tática em tempo real inspirado em Clash Royale e focado no u
 ## 🛠️ Tecnologias Utilizadas
 
 - **Frontend**: HTML5, Vanilla CSS, JavaScript (ES6+).
+- **Backend**: [Supabase](https://supabase.com/) para dados persistentes (perfis, ranking) e sistema Real-Time (matchmaking, sincronização PvP).
 - **Tooling**: [Vite](https://vitejs.dev/) para desenvolvimento e build.
 - **API**: [PokéAPI](https://pokeapi.co/) para dados e sprites de Pokémon.
 - **Ícones**: Font Awesome.
