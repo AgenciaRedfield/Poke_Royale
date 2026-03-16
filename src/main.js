@@ -92,6 +92,61 @@ const ARENAS = [
   { name: "Arena da Cidade de Celadon", minTrophies: 400, bg: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/locations/5.png", badgeImg: "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/rainbow-badge.png", badgeName: "Insígnia do Arco-Íris" }
 ];
 
+// --- River & Bridge Physics ---
+// River occupies y: 44% to 56% of arena. Bridges at x: 16-38% (left) and 62-84% (right).
+const RIVER_ZONE = { top: 44, bottom: 56 };
+const BRIDGE_ZONES = [
+  { xMin: 16, xMax: 38, xCenter: 27 },  // left bridge
+  { xMin: 62, xMax: 84, xCenter: 73 }   // right bridge
+];
+
+function isOnBridge(x) {
+  return BRIDGE_ZONES.some(b => x >= b.xMin && x <= b.xMax);
+}
+
+function nearestBridgeX(x) {
+  const d0 = Math.abs(x - BRIDGE_ZONES[0].xCenter);
+  const d1 = Math.abs(x - BRIDGE_ZONES[1].xCenter);
+  return d0 <= d1 ? BRIDGE_ZONES[0].xCenter : BRIDGE_ZONES[1].xCenter;
+}
+
+// Returns the effective waypoint the unit should move toward, respecting bridges.
+function getBridgeAwareTarget(u, target) {
+  if (!target) return null;
+
+  const inRiver = u.y >= RIVER_ZONE.top && u.y <= RIVER_ZONE.bottom;
+
+  if (inRiver) {
+    if (!isOnBridge(u.x)) {
+      // Stranded in water — slide to nearest bridge X, keep Y
+      return { x: nearestBridgeX(u.x), y: u.y };
+    }
+    // On the bridge — push straight through (don't drift X)
+    return { x: u.x, y: target.y };
+  }
+
+  // Does this unit need to cross the river to reach the target?
+  const needsCross = (u.y > RIVER_ZONE.bottom && target.y < RIVER_ZONE.top) ||
+                     (u.y < RIVER_ZONE.top  && target.y > RIVER_ZONE.bottom);
+
+  if (needsCross) {
+    const bridgeX = nearestBridgeX(u.x);
+    const aligned  = Math.abs(u.x - bridgeX) < 5;
+
+    if (!aligned) {
+      // Step 1 — slide horizontally to align with bridge, stay on own side
+      return { x: bridgeX, y: u.y };
+    } else {
+      // Step 2 — aligned, now walk into the river on the bridge
+      const bridgeEntryY = u.y > 50 ? RIVER_ZONE.bottom : RIVER_ZONE.top;
+      return { x: bridgeX, y: bridgeEntryY };
+    }
+  }
+
+  // Same side — direct path
+  return target;
+}
+
 // --- Menu Navigation ---
 function switchMenuTab(tabId) {
   document.querySelectorAll('.menu-tab').forEach(el => el.style.display = 'none');
@@ -1056,13 +1111,25 @@ function update(time) {
       const rangePercent = u.range * pxRatioY; 
       
       if (actualDist > rangePercent) {
-        // Move towards target
-        const angle = Math.atan2(target.y - u.y, target.x - u.x);
-        // speed is base stat, let's normalize to screen % per second
-        const moveSpeed = (2 + u.speed * 0.05) * dt; 
-        
-        u.x += Math.cos(angle) * moveSpeed;
-        u.y += Math.sin(angle) * moveSpeed * (arenaRect.width / arenaRect.height); // squish ratio
+        // Bridge-aware pathfinding: route units through bridges, never across water
+        const moveTarget = getBridgeAwareTarget(u, target);
+        if (moveTarget) {
+          const angle = Math.atan2(moveTarget.y - u.y, moveTarget.x - u.x);
+          const moveSpeed = (2 + u.speed * 0.05) * dt;
+
+          const newX = u.x + Math.cos(angle) * moveSpeed;
+          const newY = u.y + Math.sin(angle) * moveSpeed * (arenaRect.width / arenaRect.height);
+
+          // River collision guard: block Y movement into river water off-bridge
+          const wouldEnterRiver = newY >= RIVER_ZONE.top && newY <= RIVER_ZONE.bottom;
+          if (wouldEnterRiver && !isOnBridge(newX)) {
+            u.x = newX; // allow horizontal slide toward bridge
+            // u.y stays — blocked by water
+          } else {
+            u.x = newX;
+            u.y = newY;
+          }
+        }
       } else {
         // Attack
         if (time - u.lastAtkTime > u.atkSpeed) {
