@@ -1,3 +1,5 @@
+import './style.css';
+
 let GAME_DATA = {
   pokemonList: [],
   playerElixir: 5,
@@ -303,26 +305,50 @@ setInterval(() => {
 }, 1000);
 
 
+// --- Splash Screen ---
+function showSplash() {
+  const splash = document.getElementById('splashScreen');
+  const loading = document.getElementById('loadingScreen');
+  if (!splash) { startDataFetch(); return; }
+  
+  splash.style.display = 'flex';
+  loading.style.display = 'none';
+  
+  // After 2.5s, transition to loading screen
+  setTimeout(() => {
+    splash.style.opacity = '0';
+    splash.style.transform = 'scale(1.05)';
+    setTimeout(() => {
+      splash.style.display = 'none';
+      loading.style.display = 'flex';
+      startDataFetch();
+    }, 500);
+  }, 2000);
+}
+
 // Simplified Fetch from PokeAPI
-async function fetchPokemonData() {
+async function startDataFetch() {
   const loadingText = document.getElementById("loadingText");
+  const loadingBar = document.getElementById("loadingBarFill");
   const promises = [];
-  // Fetch a mix of Pokemon for variety
-  // Fetch a mix of Pokemon for variety including legendary/epic ones
   const ids = [1, 4, 7, 25, 39, 66, 74, 92, 94, 6, 9, 3, 130, 133, 143, 149, 150, 151, 144, 145, 146, 
                2, 5, 8, 26, 65, 68, 76, 123, 131, 134, 135, 136, 59, 112, 115, 121, 137, 142, 147, 148];
+  let loaded = 0;
   
   for (let i = 0; i < ids.length; i++) {
-    loadingText.innerText = `Loading Pokémon ${i + 1}/${ids.length}...`;
     promises.push(
       fetch(`https://pokeapi.co/api/v2/pokemon/${ids[i]}`)
         .then(res => res.json())
         .then(data => {
+          loaded++;
+          const pct = Math.round((loaded / ids.length) * 100);
+          if (loadingText) loadingText.innerText = `Carregando Pokémon... ${pct}%`;
+          if (loadingBar) loadingBar.style.width = `${pct}%`;
+
           let hp = 100 + data.stats.find(s => s.stat.name === 'hp').base_stat * 2;
           let atk = data.stats.find(s => s.stat.name === 'attack').base_stat / 2;
           let cost = Math.max(1, Math.min(9, Math.ceil((hp/100) + (atk/20))));
           
-          // Rarity calculation based on base stat total (roughly)
           const bst = data.stats.reduce((acc, s) => acc + s.base_stat, 0);
           let rarity = "Comum";
           let rarityMult = 1.0;
@@ -359,7 +385,6 @@ async function fetchPokemonData() {
   const hasSave = loadGame();
   
   if (!hasSave) {
-    // Initialize collection with starters and common ones for new players
     GAME_DATA.collection = results.filter(p => ["bulbasaur", "charmander", "squirtle", "pikachu", "jigglypuff", "machop"].includes(p.name));
     GAME_DATA.deck = GAME_DATA.collection.slice(0, 8);
   }
@@ -372,8 +397,14 @@ async function fetchPokemonData() {
       document.getElementById("mainMenu").style.display = "flex";
       updateProfileUI();
       updateArenaUI(); 
+      renderChests();
+      updateCurrencyUI();
       playMusic();
   }
+}
+
+async function fetchPokemonData() {
+  showSplash();
 }
 
 // --- Setup Screen Logic ---
@@ -713,6 +744,11 @@ function initTowers() {
     { id: "playerTowerLeft", team: "player", hp: 800, maxHp: 800, isKing: false, el: document.getElementById("playerTowerLeft"), x: 20, y: 80 },
     { id: "playerTowerRight", team: "player", hp: 800, maxHp: 800, isKing: false, el: document.getElementById("playerTowerRight"), x: 80, y: 80 },
   ];
+  
+  // FIX: Always restore tower visibility on arena reset
+  GAME_DATA.towers.forEach(t => {
+    t.el.style.display = '';
+  });
   
   updateTowersUI();
 }
@@ -1173,6 +1209,32 @@ function startMatchTimer() {
   }, 1000);
 }
 
+function resetBattleState() {
+  // Stop any running loop
+  if (GAME_DATA.battleInterval) {
+    clearInterval(GAME_DATA.battleInterval);
+    GAME_DATA.battleInterval = null;
+  }
+  
+  // Clear all unit elements from DOM
+  GAME_DATA.units.forEach(u => { if (u.el) u.el.remove(); });
+  GAME_DATA.units = [];
+  
+  // Also clear any orphaned unit elements
+  document.getElementById('unitsContainer').innerHTML = '';
+  
+  // Reset battle variables
+  GAME_DATA.playerElixir = 5;
+  GAME_DATA.enemyElixir = 5;
+  GAME_DATA.gameOver = false;
+  GAME_DATA.matchTime = 180;
+  GAME_DATA.elixirRegenRate = 0.35;
+  
+  // Reset timer display color
+  document.getElementById('matchTimer').style.color = '';
+  document.getElementById('matchTimer').innerText = '3:00';
+}
+
 function initGame() {
   // Bind once - safety check
   if (!GAME_DATA.restartBound) {
@@ -1180,22 +1242,23 @@ function initGame() {
       document.getElementById("gameOverScreen").style.display = "none";
       document.getElementById("gameContainer").style.display = "none";
       document.getElementById("mainMenu").style.display = "flex";
-      switchMenuTab('arenaTab'); // Ensure we land on the arena tab
-      
-      // Reset Data
-      GAME_DATA.playerElixir = 5;
-      GAME_DATA.enemyElixir = 5;
-      GAME_DATA.gameOver = false;
-      GAME_DATA.units.forEach(u => u.el.remove());
-      GAME_DATA.units = [];
+      switchMenuTab('arenaTab');
+      updateArenaUI();
+      updateProfileUI();
+      updateCurrencyUI();
+      renderChests();
     });
     GAME_DATA.restartBound = true;
   }
+  
+  // FIX: Full reset before each new game
+  resetBattleState();
   
   initTowers();
   initDeck();
   startMatchTimer();
   GAME_DATA.lastFrameTime = performance.now();
+  GAME_DATA.gameOver = false; // ensure set after reset
   requestAnimationFrame(update);
 }
 

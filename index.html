@@ -1,17 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>PokéClash Royale</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>PokéClash</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="PokéClash" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#1e3a8a" />
+    <meta name="description" content="Jogo de batalha de Pokémon estilo Clash Royale" />
+    
+    <!-- PWA Icons (Apple) -->
+    <link rel="apple-touch-icon" href="/logo.png" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Fonts & Icons -->
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/node_modules/@fortawesome/fontawesome-free/css/all.min.css">
     <link rel="stylesheet" href="/src/style.css">
   </head>
   <body>
-    <div id="loadingScreen">
-      <h1>PokéClash</h1>
+    <!-- Splash Screen -->
+    <div id="splashScreen">
+      <img id="splashLogo" src="/logo.png" alt="PokéClash Logo" />
+      <div class="splash-loader">
+        <div class="splash-loader-bar"></div>
+      </div>
+      <p class="splash-tagline">Batalhas épicas te aguardam!</p>
+    </div>
+
+    <div id="loadingScreen" style="display: none;">
+      <img src="/logo.png" alt="PokéClash" class="loading-logo" />
       <p id="loadingText">Carregando dados Pokémon...</p>
+      <div class="loading-bar-outer">
+        <div id="loadingBarFill" class="loading-bar-inner"></div>
+      </div>
     </div>
 
     <!-- Setup Screen -->
@@ -202,8 +230,12 @@
       </div>
       
       <div id="gameOverScreen" style="display: none;">
-         <h1 id="gameOverTitle">VITÓRIA!</h1>
-         <button id="restartBtn">Sair pra Batalhar</button>
+         <div class="game-over-content">
+           <h1 id="gameOverTitle">VITÓRIA!</h1>
+           <button id="restartBtn">
+             <i class="fas fa-redo"></i> Menu Principal
+           </button>
+         </div>
       </div>
     </div>
     
@@ -225,5 +257,13 @@
     </div>
 
     <script type="module" src="/src/main.js"></script>
+    <script>
+      // Register Service Worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
