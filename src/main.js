@@ -1008,10 +1008,12 @@ function spawnPlayerUnit(handIndex, xPercent, yPercent) {
     if (card.isSpell) {
        castSpell(card, xPercent, yPercent, "player");
        playEffect('deploy');
+       applyScreenShake(4);
     } else {
        createUnit(card, xPercent, yPercent, "player");
        playCry(card.cry);
        playEffect('deploy');
+       showFloatingText(xPercent, yPercent, card.name, 'deploy');
     }
     
     // Cycle cards back to bottom of battle deck
@@ -1111,6 +1113,10 @@ function castSpell(spell, x, y, team) {
       }
     });
     updateTowersUI();
+
+    const intensity = spell.atk > 200 ? 10 : 5;
+    applyScreenShake(intensity);
+    showFloatingText(x, y, spell.name, 'spell');
   }, 200);
 }
 
@@ -1295,7 +1301,17 @@ function update(time) {
               }
               target.ref.hp -= damage;
               
-              if (target.type === 'tower') updateTowersUI();
+              // Juice
+              showFloatingText(target.ref.x, target.ref.y, `-${damage}`, 'normal');
+              if (target.ref.el) {
+                target.ref.el.style.filter = "brightness(3) saturate(2)";
+                setTimeout(() => { if(target.ref.el) target.ref.el.style.filter = ""; }, 60);
+              }
+
+              if (target.type === 'tower') {
+                updateTowersUI();
+                applyScreenShake(2);
+              }
               
               if (target.type === 'tower' && target.ref.isKing && target.ref.hp <= 0) {
                 endGame(u.team === 'player');
@@ -1503,6 +1519,7 @@ function endGame(playerWon) {
     title.innerText = "DERROTA\n-5 Troféus\n-15 XP";
     title.style.color = "#ef4444";
   }
+  applyScreenShake(15);
   saveGame();
 }
 
@@ -1626,15 +1643,26 @@ function updateProjectiles(dt) {
     if (dist < 3) {
       // Impact
       let finalDmg = p.damage;
+      let isEffective = 1.0;
       if (p.attackerTypes && target.types) {
-        finalDmg = Math.floor(finalDmg * getDamageMultiplier(p.attackerTypes, target.types));
+        isEffective = getDamageMultiplier(p.attackerTypes, target.types);
+        finalDmg = Math.floor(finalDmg * isEffective);
       }
       target.hp -= finalDmg;
       
+      // Juice: Floating Text
+      let textType = 'normal';
+      let displayText = `-${finalDmg}`;
+      if (isEffective > 1.1) { textType = 'effective'; displayText = `CRÍTICO\n-${finalDmg}`; applyScreenShake(2); }
+      if (isEffective < 0.9 && isEffective > 0.1) { textType = 'not-effective'; }
+      if (isEffective === 0) { textType = 'immune'; displayText = 'IMUNE'; }
+      
+      showFloatingText(target.x, target.y, displayText, textType);
+
       // Visual impact
       if (target.el) {
-        target.el.style.filter += " brightness(2)";
-        setTimeout(() => { if(target.el) target.el.style.filter = target.el.style.filter.replace(" brightness(2)", ""); }, 50);
+        target.el.style.filter = "brightness(3) white-balance(100%)";
+        setTimeout(() => { if(target.el) target.el.style.filter = ""; }, 60);
       }
 
       p.el.remove();
@@ -1643,6 +1671,7 @@ function updateProjectiles(dt) {
       // Update towers if target was a tower
       if (GAME_DATA.towers.includes(target)) {
         updateTowersUI();
+        applyScreenShake(3);
         if (target.isKing && target.hp <= 0) endGame(p.team === 'player');
       }
       continue;
@@ -1658,6 +1687,29 @@ function updateProjectiles(dt) {
     p.el.style.top = `${p.y}%`;
     p.el.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
   }
+}
+
+function applyScreenShake(intensity = 5) {
+  const container = document.getElementById("gameContainer");
+  container.style.animation = 'none';
+  container.offsetHeight; // trigger reflow
+  container.style.animation = `shake ${0.1 + intensity/20}s cubic-bezier(.36,.07,.19,.97) both`;
+  
+  setTimeout(() => {
+    container.style.animation = '';
+  }, 500);
+}
+
+function showFloatingText(x, y, text, type) {
+  const container = document.getElementById("unitsContainer");
+  const el = document.createElement("div");
+  el.className = `floating-text ${type}`;
+  el.style.left = `${x}%`;
+  el.style.top = `${y}%`;
+  el.innerText = text;
+  container.appendChild(el);
+  
+  setTimeout(() => el.remove(), 800);
 }
 
 // Start

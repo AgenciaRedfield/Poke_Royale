@@ -1690,6 +1690,38 @@ body {
   100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
 }
 
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+@keyframes floatUp {
+  0% { transform: translate(-50%, 0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(-50%, -60px); opacity: 0; }
+}
+
+.floating-text {
+  position: absolute;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: 1.1rem;
+  z-index: 100;
+  text-shadow: 2px 2px 0 #000;
+  animation: floatUp 0.8s ease-out forwards;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.floating-text.normal { color: #fff; }
+.floating-text.effective { color: #facc15; font-size: 1.4rem; z-index: 101; }
+.floating-text.not-effective { color: #94a3b8; font-size: 0.9rem; }
+.floating-text.immune { color: #ef4444; }
+.floating-text.spell { color: #f59e0b; font-size: 1.3rem; }
+.floating-text.deploy { color: #3b82f6; font-size: 0.9rem; text-shadow: 1px 1px 0 #000; }
+
 /* Projectiles */
 .projectile {
   position: absolute;
