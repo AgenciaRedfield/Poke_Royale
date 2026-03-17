@@ -1,4 +1,4 @@
-# PokéClash Royale 🚀
+# Poké Royale 🚀
 
 Um jogo de batalha tática em tempo real inspirado em Clash Royale e focado no universo Pokémon. Desenvolvido com **Vanilla JavaScript**, **Vite** e **PokéAPI**.
 
@@ -26,30 +26,6 @@ Um jogo de batalha tática em tempo real inspirado em Clash Royale e focado no u
 - **Tooling**: [Vite](https://vitejs.dev/) para desenvolvimento e build.
 - **API**: [PokéAPI](https://pokeapi.co/) para dados e sprites de Pokémon.
 - **Ícones**: Font Awesome.
-
-## 🚀 Como Executar Localmente
-
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/seu-usuario/poke-clash.git
-   ```
-2. Instale as dependências:
-   ```bash
-   npm install
-   ```
-3. Inicie o servidor de desenvolvimento:
-   ```bash
-   npm run dev
-   ```
-4. Abra o navegador em `http://localhost:5173`.
-
-## 🌐 Deploy na Vercel
-
-Este projeto está pronto para ser hospedado na Vercel. 
-
-1. Conecte seu repositório GitHub à Vercel.
-2. Certifique-se de que o comando de Build seja `npm run build` e o diretório de saída seja `dist`.
-3. Clique em **Deploy** e pronto!
 
 ## 📜 Licença
 
