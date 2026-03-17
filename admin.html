@@ -149,6 +149,16 @@
                   <span class="pill">CRUD</span>
                 </div>
 
+                <div class="api-search-box">
+                  <div class="search-input-group">
+                    <input id="pokeApiSearch" type="text" placeholder="Nome ou ID do Pokémon..." />
+                    <button id="searchPokeApiBtn" type="button" class="mini-btn">
+                      <i class="fas fa-search"></i> Buscar na PokeAPI
+                    </button>
+                  </div>
+                  <div id="apiSearchResults" class="search-results-dropdown" style="display: none;"></div>
+                </div>
+
                 <form id="pokemonForm" class="admin-form compact-form">
                   <input id="pokemonId" type="hidden" />
                   <div class="form-grid">
@@ -251,6 +261,16 @@
                 <div class="card-head">
                   <h2>Novo item / spell</h2>
                   <span class="pill">CRUD</span>
+                </div>
+
+                <div class="api-search-box">
+                  <div class="search-input-group">
+                    <input id="itemApiSearch" type="text" placeholder="Nome do item (ex: poke-ball, master-ball)..." />
+                    <button id="searchItemApiBtn" type="button" class="mini-btn">
+                      <i class="fas fa-search"></i> Buscar na PokeAPI
+                    </button>
+                  </div>
+                  <div id="itemApiSearchResults" class="search-results-dropdown" style="display: none;"></div>
                 </div>
 
                 <form id="itemForm" class="admin-form compact-form">

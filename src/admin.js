@@ -5,10 +5,18 @@ const state = {
   adminUser: null,
   profiles: [],
   pokemon: [],
-  items: []
+  items: [],
+  apiPokemonList: [],
+  apiItemList: []
 };
 
 const els = {
+  pokeApiSearch: document.getElementById('pokeApiSearch'),
+  searchPokeApiBtn: document.getElementById('searchPokeApiBtn'),
+  apiSearchResults: document.getElementById('apiSearchResults'),
+  itemApiSearch: document.getElementById('itemApiSearch'),
+  searchItemApiBtn: document.getElementById('searchItemApiBtn'),
+  itemApiSearchResults: document.getElementById('itemApiSearchResults'),
   loginCard: document.getElementById('loginCard'),
   adminApp: document.getElementById('adminApp'),
   authMessage: document.getElementById('authMessage'),
@@ -347,6 +355,85 @@ async function savePokemon(event) {
   await loadDashboardData();
 }
 
+async function fetchApiPokemonList() {
+  if (state.apiPokemonList.length > 0) return state.apiPokemonList;
+  try {
+    const res = await fetch('https://pokeapi.co/api/v2/pokemon?limit=1000');
+    const data = await res.json();
+    state.apiPokemonList = data.results;
+    return state.apiPokemonList;
+  } catch (error) {
+    console.error('Erro ao buscar lista PokeAPI:', error);
+    return [];
+  }
+}
+
+async function searchPokeApi() {
+  const query = els.pokeApiSearch.value.trim().toLowerCase();
+  if (!query) {
+    els.apiSearchResults.style.display = 'none';
+    return;
+  }
+
+  const list = await fetchApiPokemonList();
+  const matches = list
+    .filter((p) => p.name.includes(query))
+    .slice(0, 10);
+
+  if (matches.length === 0) {
+    els.apiSearchResults.innerHTML = '<div class="search-result-item">Nenhum resultado</div>';
+  } else {
+    els.apiSearchResults.innerHTML = matches
+      .map(
+        (p) => `
+        <div class="search-result-item" data-api-name="${p.name}">
+          <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.url.split('/').filter(Boolean).pop()}.png" alt="${p.name}" />
+          <span>${p.name}</span>
+          <small>PokeAPI</small>
+        </div>
+      `
+      )
+      .join('');
+  }
+  els.apiSearchResults.style.display = 'block';
+}
+
+async function importFromPokeApi(apiName) {
+  els.apiSearchResults.style.display = 'none';
+  els.pokeApiSearch.value = '';
+  showMessage(els.pokemonMessage, `Buscando dados de ${apiName}...`);
+
+  try {
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${apiName}`);
+    const data = await res.json();
+
+    const entry = {
+      slug: data.name,
+      name: data.name.charAt(0).toUpperCase() + data.name.slice(1),
+      front_sprite: data.sprites.front_default || '',
+      back_sprite: data.sprites.back_default || '',
+      cry_url: `https://raw.githubusercontent.com/PokeAPI/cries/main/cries/pokemon/latest/${data.id}.ogg`,
+      types: data.types.map((t) => t.type.name),
+      hp: data.stats.find((s) => s.stat.name === 'hp')?.base_stat || 50,
+      atk: data.stats.find((s) => s.stat.name === 'attack')?.base_stat || 50,
+      speed: data.stats.find((s) => s.stat.name === 'speed')?.base_stat || 50,
+      range: 45,
+      atk_speed: 1000,
+      cost: Math.min(10, Math.ceil(data.base_experience / 30) || 3),
+      rarity: data.base_experience > 200 ? 'Lendária' : data.base_experience > 100 ? 'Épica' : 'Comum',
+      splash_radius: 0,
+      sort_order: data.id,
+      active: true
+    };
+
+    fillPokemonForm(entry);
+    document.getElementById('pokemonId').value = ''; // Ensure we create a new one if it was an edit
+    showMessage(els.pokemonMessage, `Dados de ${entry.name} carregados! Preencha os detalhes e salve.`);
+  } catch (error) {
+    showMessage(els.pokemonMessage, `Erro ao importar: ${error.message}`, true);
+  }
+}
+
 async function saveItem(event) {
   event.preventDefault();
   clearMessage(els.itemMessage);
@@ -381,6 +468,87 @@ async function saveItem(event) {
   resetItemForm();
   showMessage(els.itemMessage, 'Item salvo com sucesso.');
   await loadDashboardData();
+}
+
+async function fetchApiItemList() {
+  if (state.apiItemList.length > 0) return state.apiItemList;
+  try {
+    const res = await fetch('https://pokeapi.co/api/v2/item?limit=2000');
+    const data = await res.json();
+    state.apiItemList = data.results;
+    return state.apiItemList;
+  } catch (error) {
+    console.error('Erro ao buscar lista de itens PokeAPI:', error);
+    return [];
+  }
+}
+
+async function searchItemApi() {
+  const query = els.itemApiSearch.value.trim().toLowerCase();
+  if (!query) {
+    els.itemApiSearchResults.style.display = 'none';
+    return;
+  }
+
+  const list = await fetchApiItemList();
+  const matches = list
+    .filter((i) => i.name.includes(query))
+    .slice(0, 10);
+
+  if (matches.length === 0) {
+    els.itemApiSearchResults.innerHTML = '<div class="search-result-item">Nenhum resultado</div>';
+  } else {
+    els.itemApiSearchResults.innerHTML = matches
+      .map(
+        (i) => `
+        <div class="search-result-item" data-api-item-name="${i.name}">
+          <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${i.name}.png" 
+               onerror="this.src='/poke-royale.png'" alt="${i.name}" />
+          <span>${i.name}</span>
+          <small>Item API</small>
+        </div>
+      `
+      )
+      .join('');
+  }
+  els.itemApiSearchResults.style.display = 'block';
+}
+
+async function importItemFromPokeApi(apiName) {
+  els.itemApiSearchResults.style.display = 'none';
+  els.itemApiSearch.value = '';
+  showMessage(els.itemMessage, `Buscando dados do item ${apiName}...`);
+
+  try {
+    const res = await fetch(`https://pokeapi.co/api/v2/item/${apiName}`);
+    const data = await res.json();
+
+    const entry = {
+      slug: data.name,
+      name: (data.names?.find(n => n.language.name === 'en')?.name || data.name).replace(/-/g, ' '),
+      item_kind: 'spell', // Default
+      front_sprite: data.sprites?.default || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/${data.name}.png`,
+      effect_sprite: null,
+      types: [], 
+      atk: data.cost ? Math.floor(data.cost / 2) : 50,
+      radius: 40,
+      cost: Math.min(10, Math.ceil(data.cost / 500) || 2),
+      rarity: data.cost > 5000 ? 'Lendária' : data.cost > 1000 ? 'Épica' : 'Comum',
+      sort_order: data.id,
+      active: true
+    };
+
+    // Tentar mapear categoria para tipo
+    if (data.category?.name) {
+      entry.types = [data.category.name.replace(/-/g, '')];
+    }
+
+    fillItemForm(entry);
+    document.getElementById('itemId').value = ''; 
+    showMessage(els.itemMessage, `Dados de ${entry.name} carregados!`);
+  } catch (error) {
+    showMessage(els.itemMessage, `Erro ao importar item: ${error.message}`, true);
+  }
 }
 
 async function toggleEntry(table, collectionKey, id) {
@@ -453,6 +621,26 @@ document.getElementById('pokemonForm').addEventListener('submit', savePokemon);
 document.getElementById('itemForm').addEventListener('submit', saveItem);
 document.getElementById('resetPokemonFormBtn').addEventListener('click', resetPokemonForm);
 document.getElementById('resetItemFormBtn').addEventListener('click', resetItemForm);
+
+els.searchItemApiBtn.addEventListener('click', searchItemApi);
+els.itemApiSearch.addEventListener('input', (e) => {
+  if (e.target.value.length >= 2) searchItemApi();
+  else els.itemApiSearchResults.style.display = 'none';
+});
+
+document.addEventListener('click', (e) => {
+  const pokemonMatch = e.target.closest('.search-result-item[data-api-name]');
+  const itemMatch = e.target.closest('.search-result-item[data-api-item-name]');
+
+  if (pokemonMatch) {
+    importFromPokeApi(pokemonMatch.dataset.apiName);
+  } else if (itemMatch) {
+    importItemFromPokeApi(itemMatch.dataset.apiItemName);
+  } else if (!e.target.closest('.api-search-box')) {
+    els.apiSearchResults.style.display = 'none';
+    els.itemApiSearchResults.style.display = 'none';
+  }
+});
 
 els.logoutBtn.addEventListener('click', async () => {
   await supabase.auth.signOut();
