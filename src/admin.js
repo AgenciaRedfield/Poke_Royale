@@ -622,6 +622,12 @@ document.getElementById('itemForm').addEventListener('submit', saveItem);
 document.getElementById('resetPokemonFormBtn').addEventListener('click', resetPokemonForm);
 document.getElementById('resetItemFormBtn').addEventListener('click', resetItemForm);
 
+els.searchPokeApiBtn.addEventListener('click', searchPokeApi);
+els.pokeApiSearch.addEventListener('input', (e) => {
+  if (e.target.value.length >= 2) searchPokeApi();
+  else els.apiSearchResults.style.display = 'none';
+});
+
 els.searchItemApiBtn.addEventListener('click', searchItemApi);
 els.itemApiSearch.addEventListener('input', (e) => {
   if (e.target.value.length >= 2) searchItemApi();
@@ -637,8 +643,8 @@ document.addEventListener('click', (e) => {
   } else if (itemMatch) {
     importItemFromPokeApi(itemMatch.dataset.apiItemName);
   } else if (!e.target.closest('.api-search-box')) {
-    els.apiSearchResults.style.display = 'none';
-    els.itemApiSearchResults.style.display = 'none';
+    if (els.apiSearchResults) els.apiSearchResults.style.display = 'none';
+    if (els.itemApiSearchResults) els.itemApiSearchResults.style.display = 'none';
   }
 });
 
